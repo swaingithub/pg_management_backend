@@ -16,8 +16,14 @@ router.get('/floors/:floorId/rooms', roomController.getRooms);
 // Route to add a room to a floor
 router.post('/floors/:floorId/rooms', roomController.createRoom);
 
+// Route to fetch rooms by room_share
+router.get('/floors/rooms/share', roomController.FetchedRooms);
+
 // Route to get students by room ID
 router.get('/rooms/:room_id/students', studentController.getStudentsByRoom);
+
+// Route to count students by room
+router.get('/rooms/count', roomController.countStudent);
 
 // Route to create a new student
 router.post('/students', studentController.createStudent);

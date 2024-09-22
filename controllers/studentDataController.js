@@ -159,3 +159,86 @@ exports.rejectStudent = async (req, res) => {
         res.status(500).json({ message: 'Error rejecting student' });
     }
 };
+
+// Save approved student data to the student table
+exports.saveApprovedStudent = (req, res) => {
+    const studentId = req.params.studentId; // Get the student ID from the route parameters
+    const { roomId } = req.body; // Get the selected room ID from the request body
+
+    const fetchStudentQuery = 'SELECT * FROM student_approvals WHERE id = ?';
+
+    db.query(fetchStudentQuery, [studentId], (err, results) => {
+        if (err) {
+            console.error('Error fetching student:', err);
+            return res.status(500).json({ message: 'Failed to fetch student details' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        const student = results[0];
+
+        // Check current share_room count
+        const checkRoomQuery = 'SELECT room_share FROM rooms WHERE id = ?';
+        db.query(checkRoomQuery, [roomId], (err, results) => {
+            if (err) {
+                console.error('Error checking room:', err);
+                return res.status(500).json({ message: 'Failed to check room details' });
+            }
+
+            if (results.length === 0 || results[0].share_room >= 4) {
+                return res.status(400).json({ message: 'Room is full or does not exist' });
+            }
+
+            const insertStudentQuery = `INSERT INTO students (name, father_name, phone_number, email, work, aadhaar_photo, passport_photo, room_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+            const studentValues = [
+                student.name,
+                student.father_name,
+                student.phone, // Ensure this matches the column name in the students table
+                student.email,
+                student.work,
+                student.aadhaar_photo,
+                student.passport_photo,
+                roomId // Insert the selected room ID
+            ];
+
+            db.query(insertStudentQuery, studentValues, (err) => {
+                if (err) {
+                    console.error('Error saving student data:', err);
+                    return res.status(500).json({ message: 'Failed to save student data' });
+                }
+
+                // Increase the share_room count
+                const updateRoomQuery = 'UPDATE rooms SET room_share = room_share + 1 WHERE id = ?';
+                db.query(updateRoomQuery, [roomId], (err) => {
+                    if (err) {
+                        console.error('Error updating room room_share:', err);
+                        return res.status(500).json({ message: 'Failed to update room share count' });
+                    }
+
+                    // Delete related notifications
+                    const deleteNotificationsQuery = 'DELETE FROM notifications WHERE student_id = ?';
+                    db.query(deleteNotificationsQuery, [studentId], (err) => {
+                        if (err) {
+                            console.error('Error deleting notifications:', err);
+                            return res.status(500).json({ message: 'Student saved, but failed to remove notifications' });
+                        }
+
+                        // Now delete the student from the approvals table
+                        const deleteQuery = 'DELETE FROM student_approvals WHERE id = ?';
+                        db.query(deleteQuery, [studentId], (err) => {
+                            if (err) {
+                                console.error('Error deleting student from approvals:', err);
+                                return res.status(500).json({ message: 'Student saved, but failed to remove from approvals' });
+                            }
+
+                            res.status(200).json({ message: 'Student saved successfully' });
+                        });
+                    });
+                });
+            });
+        });
+    });
+};
+

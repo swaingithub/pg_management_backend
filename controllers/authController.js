@@ -36,7 +36,6 @@ exports.signupUser = async (req, res) => {
 };
 
 // Login Admin or User
-// Login Admin or User
 exports.login = (req, res) => {
     const { username, password } = req.body;
 

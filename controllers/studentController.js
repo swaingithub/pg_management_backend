@@ -43,38 +43,62 @@ exports.createStudent = [
             return res.status(400).send('Invalid room ID');
         }
 
-        const studentData = {
-            name,
-            father_name,
-            phone_number,
-            email,
-            work,
-            aadhaar_photo: req.files['aadhaar_photo'] ? `/uploads/${req.files['aadhaar_photo'][0].filename}` : null,
-            passport_photo: req.files['passport_photo'] ? `/uploads/${req.files['passport_photo'][0].filename}` : null,
-            room_id: parseInt(room_id, 10) // Ensure room_id is an integer
-        };
-
-        const query = `INSERT INTO students (name, father_name, phone_number, email, work, aadhaar_photo, passport_photo, room_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-        const values = [
-            studentData.name,
-            studentData.father_name,
-            studentData.phone_number,
-            studentData.email,
-            studentData.work,
-            studentData.aadhaar_photo,
-            studentData.passport_photo,
-            studentData.room_id
-        ];
-
-        db.query(query, values, (err) => {
+        // Check current share_room count
+        const checkRoomQuery = 'SELECT room_share FROM rooms WHERE id = ?';
+        db.query(checkRoomQuery, [room_id], (err, results) => {
             if (err) {
-                console.error('Error creating student:', err);
-                return res.status(500).send('Failed to create student');
+                console.error('Error checking room:', err);
+                return res.status(500).send('Failed to check room details');
             }
-            res.status(201).send('Student created successfully');
+
+            if (results.length === 0 || results[0].room_share >= 4) {
+                return res.status(400).send('Room is full or does not exist');
+            }
+
+            const studentData = {
+                name,
+                father_name,
+                phone_number,
+                email,
+                work,
+                aadhaar_photo: req.files['aadhaar_photo'] ? `/uploads/${req.files['aadhaar_photo'][0].filename}` : null,
+                passport_photo: req.files['passport_photo'] ? `/uploads/${req.files['passport_photo'][0].filename}` : null,
+                room_id: parseInt(room_id, 10) // Ensure room_id is an integer
+            };
+
+            const query = `INSERT INTO students (name, father_name, phone_number, email, work, aadhaar_photo, passport_photo, room_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+            const values = [
+                studentData.name,
+                studentData.father_name,
+                studentData.phone_number,
+                studentData.email,
+                studentData.work,
+                studentData.aadhaar_photo,
+                studentData.passport_photo,
+                studentData.room_id
+            ];
+
+            db.query(query, values, (err) => {
+                if (err) {
+                    console.error('Error creating student:', err);
+                    return res.status(500).send('Failed to create student');
+                }
+
+                // Increase the share_room count
+                const updateRoomQuery = 'UPDATE rooms SET room_share = room_share + 1 WHERE id = ?';
+                db.query(updateRoomQuery, [room_id], (err) => {
+                    if (err) {
+                        console.error('Error updating room room_share:', err);
+                        return res.status(500).send('Failed to update room share count');
+                    }
+
+                    res.status(201).send('Student created successfully');
+                });
+            });
         });
     }
 ];
+
 
 // Edit student details with file uploads
 exports.editStudent = [
@@ -170,8 +194,8 @@ const deleteFile = (filePath) => {
 exports.deleteStudent = (req, res) => {
     const studentId = req.params.id;
 
-    // Query to find the student
-    const findStudentQuery = 'SELECT passport_photo, aadhaar_photo FROM students WHERE id = ?';
+    // Query to find the student and get the room_id
+    const findStudentQuery = 'SELECT passport_photo, aadhaar_photo, room_id FROM students WHERE id = ?';
 
     db.query(findStudentQuery, [studentId], (err, result) => {
         if (err) {
@@ -187,6 +211,7 @@ exports.deleteStudent = (req, res) => {
         // Extract file paths (they should be strings)
         const passportPhotoPath = student.passport_photo;
         const aadhaarPhotoPath = student.aadhaar_photo;
+        const roomId = student.room_id; // Get the room ID
 
         // First, delete the student record
         const deleteStudentQuery = 'DELETE FROM students WHERE id = ?';
@@ -196,11 +221,21 @@ exports.deleteStudent = (req, res) => {
                 return res.status(500).json({ error: 'Failed to delete student' });
             }
 
-            // After deleting student, delete the associated files
+            // After deleting the student, delete the associated files
             deleteFile(passportPhotoPath);  // Delete passport photo
             deleteFile(aadhaarPhotoPath);   // Delete Aadhaar photo
 
-            return res.status(200).json({ message: 'Student deleted successfully' });
+            // Now, decrease the share_room count for the associated room
+            const updateRoomQuery = 'UPDATE rooms SET room_share = GREATEST(room_share - 1, 0) WHERE id = ?';
+            db.query(updateRoomQuery, [roomId], (err) => {
+                if (err) {
+                    console.error('Error updating room room_share:', err);
+                    return res.status(500).json({ error: 'Failed to update room share count' });
+                }
+
+                return res.status(200).json({ message: 'Student deleted successfully' });
+            });
         });
     });
 };
+
