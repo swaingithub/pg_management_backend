@@ -85,7 +85,8 @@ exports.login = (req, res) => {
                     message: 'Logged in successfully',
                     role: 'user',
                     id: user.id,
-                    username: user.username
+                    username: user.username,
+                    email: user.email
                 });
             });
         }

@@ -9,6 +9,8 @@ router.get('/floors',floorController.getFloors);
 
 // Route to add a new floor
 router.post('/floors', floorController.createFloor);
+//Route to count the student by floor_id
+router.get('/count-students-by-room-floor', floorController.countStudentsByRoomAndFloor);
 
 // Route to get rooms for a floor
 router.get('/floors/:floorId/rooms', roomController.getRooms);
