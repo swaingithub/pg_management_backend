@@ -4,8 +4,6 @@ const db = require('../config/db');
 // Register Admin
 exports.signupUser = async (req, res) => {
     const { username, email, password } = req.body;
-
-    console.log(req.body);
     
     if (!username || !password) {
         return res.status(400).json({ message: 'Please provide both username and password' });

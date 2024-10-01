@@ -124,7 +124,6 @@ exports.getStudentDetails = (req, res) => {
         }
 
         res.status(200).json(student);
-        console.log(student);
     });
 };
 

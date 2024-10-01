@@ -17,7 +17,6 @@ const upload = multer({
         },
         filename: (req, file, cb) => {
             const fileName = Date.now() + path.extname(file.originalname);
-            console.log(`Saving file as ${fileName}`); // Debugging log
             cb(null, fileName); // Unique file name
         }
     }),
@@ -183,7 +182,6 @@ const deleteFile = (filePath) => {
     if (filePath && fs.existsSync(filePath)) {
         try {
             fs.unlinkSync(filePath); // Synchronously delete the file
-            console.log(`Deleted file: ${filePath}`);
         } catch (err) {
             console.error(`Error deleting file: ${err.message}`);
         }
